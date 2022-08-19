@@ -1,20 +1,14 @@
-import copy
+import torch.nn as nn
 
-from torch import nn
+from Sublayers import FeedForward, MultiHeadAttention, Norm
 
-from normalisation import Norm
-from multi_head_attention import MultiHeadAttention
-from feed_forward import FeedForward
-
-# build an encoder layer with one multi-head attention layer and one # feed-forward layer
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.1):
+    def __init__(self, d_model, heads, dropout=0.1):
         super().__init__()
-        
         self.norm_1 = Norm(d_model)
         self.norm_2 = Norm(d_model)
-        self.attn = MultiHeadAttention(heads, d_model)
-        self.ff = FeedForward(d_model)
+        self.attn = MultiHeadAttention(heads, d_model, dropout=dropout)
+        self.ff = FeedForward(d_model, dropout=dropout)
         self.dropout_1 = nn.Dropout(dropout)
         self.dropout_2 = nn.Dropout(dropout)
         
@@ -23,7 +17,6 @@ class EncoderLayer(nn.Module):
         x = x + self.dropout_1(self.attn(x2,x2,x2,mask))
         x2 = self.norm_2(x)
         x = x + self.dropout_2(self.ff(x2))
-
         return x
     
 # build a decoder layer with two multi-head attention layers and
@@ -31,7 +24,6 @@ class EncoderLayer(nn.Module):
 class DecoderLayer(nn.Module):
     def __init__(self, d_model, heads, dropout=0.1):
         super().__init__()
-        
         self.norm_1 = Norm(d_model)
         self.norm_2 = Norm(d_model)
         self.norm_3 = Norm(d_model)
@@ -40,21 +32,15 @@ class DecoderLayer(nn.Module):
         self.dropout_2 = nn.Dropout(dropout)
         self.dropout_3 = nn.Dropout(dropout)
         
-        self.attn_1 = MultiHeadAttention(heads, d_model)
-        self.attn_2 = MultiHeadAttention(heads, d_model)
-        self.ff = FeedForward(d_model).cuda()
+        self.attn_1 = MultiHeadAttention(heads, d_model, dropout=dropout)
+        self.attn_2 = MultiHeadAttention(heads, d_model, dropout=dropout)
+        self.ff = FeedForward(d_model, dropout=dropout)
 
     def forward(self, x, e_outputs, src_mask, trg_mask):
         x2 = self.norm_1(x)
         x = x + self.dropout_1(self.attn_1(x2, x2, x2, trg_mask))
         x2 = self.norm_2(x)
-        x = x + self.dropout_2(self.attn_2(x2, e_outputs, e_outputs,
-        src_mask))
+        x = x + self.dropout_2(self.attn_2(x2, e_outputs, e_outputs, src_mask))
         x2 = self.norm_3(x)
         x = x + self.dropout_3(self.ff(x2))
-
         return x
-
-# We can then build a convenient cloning function that can generate multiple layers:
-def get_clones(module, N):
-    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
