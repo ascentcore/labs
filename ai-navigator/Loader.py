@@ -16,7 +16,6 @@ class CustomDataset(Dataset):
                     source = [np.subtract(data[i+acc+1], current_position) for acc in range(w_s)]
                     source.append(np.subtract(data[i+w_s+t_s+1], current_position))
                     target = [np.subtract(data[i+acc+w_s+1], current_position) for acc in range(t_s)]
-
                     self.dataset.append((source, target))
 
     def __getdataset__(self):

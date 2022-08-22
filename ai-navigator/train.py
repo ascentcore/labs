@@ -66,7 +66,7 @@ def main():
     dataset = CustomDataset(['./dataset/train/run1.json', './dataset/train/run2.json',
                             './dataset/train/run3.json', './dataset/train/run4.json',
                             './dataset/train/run5.json', './dataset/train/run6.json',
-                            './dataset/train/run7.json', './dataset/train/run8.json'], 2, 2)
+                            './dataset/train/run7.json', './dataset/train/run8.json'], 10, 4)
 
     training_data = dataset.__getdataset__()
     
