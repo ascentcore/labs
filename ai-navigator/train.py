@@ -27,7 +27,7 @@ def train_model(model, opt):
             src = torch.Tensor(train_features_2)
             trg = torch.Tensor(train_labels_2)
 
-            src_mask, trg_mask = create_masks(src, trg, opt)
+            src_mask, trg_mask = create_masks(src, trg)
             src_mask = torch.Tensor(src_mask)
             trg_mask = torch.Tensor(trg_mask)
 
