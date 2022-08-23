@@ -38,17 +38,16 @@ def train_model(model, opt):
             loss = loss_function(preds, trg)
             if batch_idx % 10 == 0:
                 print('loss', loss.item())
+                torch.save(model.state_dict(), f'./saved_model/model.pt')
             total_loss += loss.item()
             
             loss.backward()
             opt.optimizer.step()
-            
-           
-def main():
 
+def get_opts():
     parser = argparse.ArgumentParser()
     parser.add_argument('-no_cuda', action='store_true')
-    parser.add_argument('-epochs', type=int, default=20)
+    parser.add_argument('-epochs', type=int, default=100)
     parser.add_argument('-d_model', type=int, default=4)
     parser.add_argument('-n_layers', type=int, default=3)
     parser.add_argument('-heads', type=int, default=2)
@@ -62,11 +61,17 @@ def main():
     if opt.device == 0:
         assert torch.cuda.is_available()
 
+    return opt
+           
+def main():
+
+    opt = get_opts()
+
 
     dataset = CustomDataset(['./dataset/train/run1.json', './dataset/train/run2.json',
                             './dataset/train/run3.json', './dataset/train/run4.json',
                             './dataset/train/run5.json', './dataset/train/run6.json',
-                            './dataset/train/run7.json', './dataset/train/run8.json'], 2, 2)
+                            './dataset/train/run7.json', './dataset/train/run8.json'], 10, 10)
 
     training_data = dataset.__getdataset__()
     

@@ -9,7 +9,7 @@ def nopeak_mask(size):
 
     return np_mask.tolist()[0]
 
-def create_masks(src, trg):
+def create_mask(src):
 
     batch_size = src.size(dim=0)
 
@@ -17,8 +17,21 @@ def create_masks(src, trg):
     src_mask_elements = [True for _ in range(src_dim_1)]
     src_mask = [[src_mask_elements] for _ in range(batch_size)]
 
-    trg_dim_1 = trg.size(dim=1)
-    trg_mask_elements = nopeak_mask(trg_dim_1)
-    trg_mask = [trg_mask_elements for _ in range(batch_size)]
+    return src_mask
+
+def create_masks(src, trg):
+
+    batch_size = src.size(dim=0)
+
+    # src_dim_1 = src.size(dim=1)
+    # src_mask_elements = [True for _ in range(src_dim_1)]
+    # src_mask = [[src_mask_elements] for _ in range(batch_size)]
+
+    # trg_dim_1 = trg.size(dim=1)
+    # trg_mask_elements = nopeak_mask(trg_dim_1)
+    # trg_mask = [trg_mask_elements for _ in range(batch_size)]
+
+    src_mask = create_mask(src)
+    trg_mask = create_mask(trg)
 
     return src_mask, trg_mask
