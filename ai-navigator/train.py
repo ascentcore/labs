@@ -28,8 +28,12 @@ def train_model(model, opt):
             trg = torch.Tensor(train_labels_2)
 
             src_mask, trg_mask = create_masks(src, trg)
-            src_mask = torch.Tensor(src_mask)
-            trg_mask = torch.Tensor(trg_mask)
+
+            # print('src.size()', src.size())
+            # print('src_mask.size()', src_mask.size())
+
+            # print('trg.size()', trg.size())
+            # print('trg_mask.size()', trg_mask.size())
 
             opt.optimizer.zero_grad()
             preds = model(src, trg, src_mask, trg_mask)

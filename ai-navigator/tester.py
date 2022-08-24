@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import json
 import random
+import torch.nn as nn
 from train import get_model, get_opts
 from Batch import create_mask
 from PIL import Image, ImageDraw
@@ -17,7 +18,6 @@ x_offset = 500
 z_offset = 100
 x_factor = 50
 z_factor = 50
-
 
 
 def draw_ellipse(x, z, r):
@@ -61,49 +61,39 @@ def run_predict():
 
         return source
 
-    offset = 3
+    offset = 11
     starting_points = reference_data[offset:window+offset+1]
 
-    for x,y,z, r in starting_points:
+    for x, y, z, r in starting_points:
         draw_ellipse(x, z, r)
 
-    for j in range(0, 100):
-        target = get_target(starting_points, window, reference_data)
-        input_data = get_input_data(starting_points, target)
-        origin = torch.tensor(
-            [get_input_data(starting_points)], dtype=torch.float32)
-        to_predict = torch.tensor(
-            [input_data], dtype=torch.float32)
-        max_len = 4
-
-        src_mask = torch.tensor(create_mask(to_predict))
-        e_outputs = model.encoder(to_predict, src_mask)
-        outputs = torch.zeros(max_len).type_as(to_predict.data)
-        # for i in range(1, max_len):
-        trg_mask = np.triu(np.ones((1, 10, 10)), k=1).astype('uint8')
-        trg_mask = torch.from_numpy(trg_mask) == 0
-
-        print(e_outputs.size())
-        print(origin.size())
-        decoded = model.decoder(origin, e_outputs, src_mask, trg_mask)
-        
-        target_offset = decoded.data.numpy()[0][0]
-        
-        print(target_offset)
-        print(starting_points[0])
-        absolute_pos = np.add(target_offset, starting_points[0])
-        print(absolute_pos)
-
-        x, y, z, r = absolute_pos
-        # print(absolute_pos)
+    for j in range(0, 1):
+        target_position = get_target(starting_points, window, reference_data)
+        x, y, z, r = target_position
         draw_ellipse(x, z, r)
 
-        print(starting_points)
+        src = get_input_data(starting_points, target_position)
+        src = torch.Tensor(np.array([src])) 
+        src_mask = create_mask(src)
 
-        starting_points = np.append(
-            starting_points, np.array([absolute_pos]), axis = 0)
-        starting_points = starting_points[1:]
+        e_outputs = model.encoder(src, src_mask)
 
+        max_len = 10
+        outputs = torch.empty(1, max_len + 1, src.size(dim=2))
+        outputs[0][0] = torch.FloatTensor(np.subtract(target_position, starting_points[0]))
+
+        for i in range(1, max_len+1):
+            trg_mask = np.triu(np.ones((1, i, i)), k=1).astype('uint8')
+            trg_mask = torch.from_numpy(trg_mask) == 0
+
+            out = model.out(model.decoder(torch.Tensor(np.array([outputs[0][:i].tolist()])), e_outputs, src_mask, trg_mask))
+            
+            outputs[0][i] = out[0][i-1]
+
+            absolute_pos = np.add(out[0][i-1].tolist(), starting_points[0])
+            x, y, z, r = absolute_pos
+            draw_ellipse(x, z, r)
+            
 
 run_predict()
 image.save('./test.png')
