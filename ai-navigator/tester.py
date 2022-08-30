@@ -1,16 +1,13 @@
 import numpy as np
 import torch
 import json
-import random
-import torch.nn as nn
+
 from train import get_model, get_opts
 from Batch import create_mask
 from PIL import Image, ImageDraw
 
 reference_data = np.array(json.loads(open('./dataset/train/run1.json').read()))
 test_data = np.array(json.loads(open('./dataset/train/run2.json').read()))
-
-window = 10
 
 image = Image.open('./web/public/assets/asphalt/Asphalt_001_COLOR.jpg')
 draw = ImageDraw.Draw(image)
@@ -20,14 +17,14 @@ x_factor = 50
 z_factor = 50
 
 
-def draw_ellipse(x, z, r):
-    print('#### Drawing')
-    print(f'x: {x_offset + x * x_factor}, y: {z_offset + z * z_factor}')
+def draw_ellipse(x, z, r, color):
+    # print('#### Drawing')
+    # print(f'x: {x_offset + x * x_factor}, y: {z_offset + z * z_factor}')
     draw.ellipse((
         x_offset + x * x_factor,
         z_offset + z * z_factor,
         x_offset + x * x_factor+5,
-        z_offset + z * z_factor+5), fill='blue', outline='white')
+        z_offset + z * z_factor+5), fill=color, outline='white')
 
 
 def run_predict():
@@ -36,22 +33,22 @@ def run_predict():
     model.load_state_dict(torch.load(f'./saved_model/model.pt'))
     model.eval()
 
-    def get_target(input, predict_length, reference_data):
+    def get_target(input, t_s, reference_data, jump):
         current_history = np.array(input)
         history_length = len(current_history)
         ref_loss = None
         ref_idx = 0
-        for i in range(len(reference_data)-history_length-predict_length):
+        for i in range(len(reference_data)-history_length-t_s):
             loss = np.abs(np.subtract(current_history,
                                       reference_data[i:i+history_length])).sum()
 
             if ref_loss is None or loss < ref_loss:
                 ref_loss = loss
                 ref_idx = i
+        print('---------ref_idx', ref_idx)
+        return reference_data[ref_idx+history_length+jump-1]
 
-        return reference_data[ref_idx+history_length+predict_length]
-
-    def get_input_data(data, target_pos = None):
+    def get_input_data(data, target_pos=None):
         current_position = data[0]
         source = [np.subtract(item, current_position)
                   for item in data[1:]]
@@ -61,39 +58,44 @@ def run_predict():
 
         return source
 
-    offset = 11
-    starting_points = reference_data[offset:window+offset+1]
-
+    starting_points = reference_data[1:opt.w_s+2]
     for x, y, z, r in starting_points:
-        draw_ellipse(x, z, r)
+        draw_ellipse(x, z, r, color='red')
 
-    for j in range(0, 1):
-        target_position = get_target(starting_points, window, reference_data)
+    for _ in range(0, 5000):
+        target_position = get_target(
+            starting_points, opt.t_s, reference_data, opt.jump)
         x, y, z, r = target_position
-        draw_ellipse(x, z, r)
+        draw_ellipse(x, z, r, color='green')
 
         src = get_input_data(starting_points, target_position)
-        src = torch.Tensor(np.array([src])) 
+        src = torch.Tensor(np.array([src]))
         src_mask = create_mask(src)
 
         e_outputs = model.encoder(src, src_mask)
 
-        max_len = 10
-        outputs = torch.empty(1, max_len + 1, src.size(dim=2))
-        outputs[0][0] = torch.FloatTensor(np.subtract(target_position, starting_points[0]))
+        outputs = torch.empty(1, opt.w_s + 1, src.size(dim=2))
+        outputs[0][0] = torch.Tensor(np.zeros(4, dtype=float))
 
-        for i in range(1, max_len+1):
+        for i in range(1, opt.w_s + 1):
             trg_mask = np.triu(np.ones((1, i, i)), k=1).astype('uint8')
             trg_mask = torch.from_numpy(trg_mask) == 0
 
-            out = model.out(model.decoder(torch.Tensor(np.array([outputs[0][:i].tolist()])), e_outputs, src_mask, trg_mask))
-            
+            out = model.out(model.decoder(torch.unsqueeze(
+                outputs[0][:i], dim=0), e_outputs, src_mask, trg_mask))
+
             outputs[0][i] = out[0][i-1]
 
             absolute_pos = np.add(out[0][i-1].tolist(), starting_points[0])
             x, y, z, r = absolute_pos
-            draw_ellipse(x, z, r)
-            
+            draw_ellipse(x, z, r, color='blue')
+
+        outputs[0][0] = torch.Tensor(starting_points[-1])
+        for i in range(1, len(outputs[0])):
+            outputs[0][i] = torch.Tensor(
+                np.add(outputs[0][i].tolist(), starting_points[0]))
+
+        starting_points = outputs[0].tolist()
 
 run_predict()
 image.save('./test.png')

@@ -29,16 +29,11 @@ def train_model(model, opt):
 
             src_mask, trg_mask = create_masks(src, trg)
 
-            # print('src.size()', src.size())
-            # print('src_mask.size()', src_mask.size())
-
-            # print('trg.size()', trg.size())
-            # print('trg_mask.size()', trg_mask.size())
-
             opt.optimizer.zero_grad()
             preds = model(src, trg, src_mask, trg_mask)
         
             loss_function = nn.MSELoss()
+            # loss_function = nn.L1Loss()
             loss = loss_function(preds, trg)
             if batch_idx % 10 == 0:
                 print('loss', loss.item())
@@ -51,7 +46,7 @@ def train_model(model, opt):
 def get_opts():
     parser = argparse.ArgumentParser()
     parser.add_argument('-no_cuda', action='store_true')
-    parser.add_argument('-epochs', type=int, default=100)
+    parser.add_argument('-epochs', type=int, default=5000)
     parser.add_argument('-d_model', type=int, default=4)
     parser.add_argument('-n_layers', type=int, default=3)
     parser.add_argument('-heads', type=int, default=2)
@@ -59,7 +54,9 @@ def get_opts():
     parser.add_argument('-batchsize', type=int, default=32)
     parser.add_argument('-printevery', type=int, default=100)
     parser.add_argument('-lr', type=int, default=0.0001)
-
+    parser.add_argument('-w_s', type=int, default=4)
+    parser.add_argument('-t_s', type=int, default=4)
+    parser.add_argument('-jump', type=int, default=10)
     opt = parser.parse_args()
     opt.device = -1
     if opt.device == 0:
@@ -71,14 +68,15 @@ def main():
 
     opt = get_opts()
 
-
-    dataset = CustomDataset(['./dataset/train/run1.json', './dataset/train/run2.json',
-                            './dataset/train/run3.json', './dataset/train/run4.json',
-                            './dataset/train/run5.json', './dataset/train/run6.json',
-                            './dataset/train/run7.json', './dataset/train/run8.json'], 10, 10)
+    # dataset = CustomDataset(['./dataset/train/run1.json', './dataset/train/run2.json',
+    #                         './dataset/train/run3.json', './dataset/train/run4.json',
+    #                         './dataset/train/run5.json', './dataset/train/run6.json',
+    #                         './dataset/train/run7.json', './dataset/train/run8.json'], opt.w_s, opt.t_s, opt.jump)
+    dataset = CustomDataset(['./dataset/train/run1.json'], opt.w_s, opt.t_s, opt.jump)
 
     training_data = dataset.__getdataset__()
-    
+    len_training_data = dataset.__len__()
+    print('len', len_training_data)
     train_dataloader = DataLoader(training_data, batch_size=opt.batchsize, shuffle=True)
     opt.train = train_dataloader
 
