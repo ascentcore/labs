@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import json
+from autoencoder.AE import AE
 
 from train import get_model, get_opts
 from Batch import create_mask
@@ -29,7 +30,8 @@ def draw_ellipse(x, z, r, color):
 
 def run_predict():
     opt = get_opts()
-    model = get_model(opt)
+    # model = get_model(opt)
+    model = AE()
     model.load_state_dict(torch.load(f'./saved_model/model.pt'))
     model.eval()
 
@@ -45,7 +47,7 @@ def run_predict():
             if ref_loss is None or loss < ref_loss:
                 ref_loss = loss
                 ref_idx = i
-        print('---------ref_idx', ref_idx)
+
         return reference_data[ref_idx+history_length+jump-1]
 
     def get_input_data(data, target_pos=None):
@@ -58,11 +60,12 @@ def run_predict():
 
         return source
 
-    starting_points = reference_data[1:opt.w_s+2]
+    start = 30
+    starting_points = reference_data[start:opt.w_s+start+1]
     for x, y, z, r in starting_points:
         draw_ellipse(x, z, r, color='red')
 
-    for _ in range(0, 5000):
+    for _ in range(0, 15):
         target_position = get_target(
             starting_points, opt.t_s, reference_data, opt.jump)
         x, y, z, r = target_position
@@ -70,32 +73,50 @@ def run_predict():
 
         src = get_input_data(starting_points, target_position)
         src = torch.Tensor(np.array([src]))
-        src_mask = create_mask(src)
+        # src_mask = create_mask(src)
 
-        e_outputs = model.encoder(src, src_mask)
+        ##########################################################
+        b_s = src.size(dim=0)
 
-        outputs = torch.empty(1, opt.w_s + 1, src.size(dim=2))
-        outputs[0][0] = torch.Tensor(np.zeros(4, dtype=float))
+        src_reshape = torch.reshape(src, (b_s, (opt.w_s + 1)  * 4))
 
-        for i in range(1, opt.w_s + 1):
-            trg_mask = np.triu(np.ones((1, i, i)), k=1).astype('uint8')
-            trg_mask = torch.from_numpy(trg_mask) == 0
+        preds = model(src_reshape)
+        preds = torch.reshape(preds, (b_s, opt.t_s, 4))
+        preds_array = preds.tolist()
 
-            out = model.out(model.decoder(torch.unsqueeze(
-                outputs[0][:i], dim=0), e_outputs, src_mask, trg_mask))
-
-            outputs[0][i] = out[0][i-1]
-
-            absolute_pos = np.add(out[0][i-1].tolist(), starting_points[0])
-            x, y, z, r = absolute_pos
+        for i in range(0, len(preds_array[0])):
+            preds_array[0][i] = np.add(preds_array[0][i], starting_points[0]).tolist()
+            x, y, z, r = preds_array[0][i]
             draw_ellipse(x, z, r, color='blue')
 
-        outputs[0][0] = torch.Tensor(starting_points[-1])
-        for i in range(1, len(outputs[0])):
-            outputs[0][i] = torch.Tensor(
-                np.add(outputs[0][i].tolist(), starting_points[0]))
+        starting_points = preds_array[0]
+        ##########################################################
+        
+        # e_outputs = model.encoder(src, src_mask)
 
-        starting_points = outputs[0].tolist()
+        # outputs = torch.empty(1, opt.w_s + 1, src.size(dim=2))
+        # outputs[0][0] = torch.Tensor(np.zeros(4, dtype=float))
+
+        # for i in range(1, opt.w_s + 1):
+        #     trg_mask = np.triu(np.ones((1, i, i)), k=1).astype('uint8')
+        #     trg_mask = torch.from_numpy(trg_mask) == 0
+
+        #     out = model.out(model.decoder(torch.unsqueeze(
+        #         outputs[0][:i], dim=0), e_outputs, src_mask, trg_mask))
+
+        #     outputs[0][i] = out[0][i-1]
+
+        #     absolute_pos = np.add(out[0][i-1].tolist(), starting_points[0])
+        #     x, y, z, r = absolute_pos
+        #     draw_ellipse(x, z, r, color='blue')
+
+        # outputs[0][0] = torch.Tensor(starting_points[-1])
+        # for i in range(1, len(outputs[0])):
+        #     outputs[0][i] = torch.Tensor(
+        #         np.add(outputs[0][i].tolist(), starting_points[0]))
+
+        # starting_points = outputs[0].tolist()
+
 
 run_predict()
 image.save('./test.png')
